@@ -20,6 +20,44 @@ const statuses = [
   'Closed'
 ];
 
+/* =========================================
+   STAFF SETTINGS
+   =========================================
+   
+   Put the Roblox User IDs of your staff here.
+
+   Example:
+   const STAFF_USER_IDS = [
+     '123456789',
+     '987654321'
+   ];
+
+   You can add as many as you want.
+*/
+
+const STAFF_USER_IDS = [
+  '11638098536'
+];
+
+/*
+   You can also allow usernames.
+
+   Example:
+   const STAFF_USERNAMES = [
+     'YourUsername',
+     'ModeratorUsername'
+   ];
+*/
+
+const STAFF_USERNAMES = [
+  'zjehoua'
+];
+
+
+/* =========================================
+   REQUEST STORAGE
+========================================= */
+
 function getRequests() {
   try {
     return JSON.parse(
@@ -37,9 +75,17 @@ function saveRequests(value) {
   );
 }
 
+
+/* =========================================
+   PAGE NAVIGATION
+========================================= */
+
 function showPage(id) {
   pages.forEach(page => {
-    page.classList.toggle('active', page.id === id);
+    page.classList.toggle(
+      'active',
+      page.id === id
+    );
   });
 
   navs.forEach(nav => {
@@ -49,9 +95,11 @@ function showPage(id) {
     );
   });
 
-  title.textContent = titles[id] || 'SP Support';
+  title.textContent =
+    titles[id] || 'SP Support';
 
-  const main = document.querySelector('.main');
+  const main =
+    document.querySelector('.main');
 
   if (main) {
     main.scrollTo({
@@ -65,18 +113,34 @@ function showPage(id) {
   }
 }
 
-document.addEventListener('click', event => {
-  const element = event.target.closest('[data-page]');
 
-  if (element) {
-    showPage(element.dataset.page);
+document.addEventListener(
+  'click',
+  event => {
+
+    const element =
+      event.target.closest('[data-page]');
+
+    if (element) {
+      showPage(
+        element.dataset.page
+      );
+    }
   }
-});
+);
 
-const collapseButton = document.getElementById('collapse');
+
+/* =========================================
+   SIDEBAR
+========================================= */
+
+const collapseButton =
+  document.getElementById('collapse');
 
 if (collapseButton) {
+
   collapseButton.onclick = () => {
+
     document
       .getElementById('sidebar')
       ?.classList.toggle('collapsed');
@@ -87,13 +151,34 @@ if (collapseButton) {
   };
 }
 
-function toast(message, bold = 'Submitted!') {
-  const toastElement = document.getElementById('toast');
+
+/* =========================================
+   TOAST
+========================================= */
+
+function toast(
+  message,
+  bold = 'Submitted!'
+) {
+
+  const toastElement =
+    document.getElementById('toast');
 
   if (!toastElement) return;
 
-  toastElement.querySelector('b').textContent = bold;
-  toastElement.querySelector('span').textContent = message;
+  const boldElement =
+    toastElement.querySelector('b');
+
+  const messageElement =
+    toastElement.querySelector('span');
+
+  if (boldElement) {
+    boldElement.textContent = bold;
+  }
+
+  if (messageElement) {
+    messageElement.textContent = message;
+  }
 
   toastElement.classList.add('show');
 
@@ -102,36 +187,59 @@ function toast(message, bold = 'Submitted!') {
   }, 4000);
 }
 
-function submitRequest(event, type) {
+
+/* =========================================
+   SUBMIT REPORT / APPEAL / TICKET
+========================================= */
+
+function submitRequest(
+  event,
+  type
+) {
+
   event.preventDefault();
 
-  const data = Object.fromEntries(
-    new FormData(event.target).entries()
-  );
+  const data =
+    Object.fromEntries(
+      new FormData(
+        event.target
+      ).entries()
+    );
 
   const item = {
+
     id:
       Date.now().toString(36) +
-      Math.random().toString(36).slice(2, 7),
+      Math.random()
+        .toString(36)
+        .slice(2, 7),
 
     type,
 
-    username: data.username || '',
+    username:
+      data.username || '',
 
-    reason: data.reason || '',
+    reason:
+      data.reason || '',
 
-    description: data.description || '',
+    description:
+      data.description || '',
 
-    evidence: data.evidence || '',
+    evidence:
+      data.evidence || '',
 
-    status: 'Pending',
+    status:
+      'Pending',
 
-    note: '',
+    note:
+      '',
 
-    createdAt: new Date().toLocaleString()
+    createdAt:
+      new Date().toLocaleString()
   };
 
-  const all = getRequests();
+  const all =
+    getRequests();
 
   all.unshift(item);
 
@@ -140,12 +248,19 @@ function submitRequest(event, type) {
   event.target.reset();
 
   toast(
-    type + ' received and marked Pending.',
+    type +
+      ' received and marked Pending.',
     'Submitted!'
   );
 }
 
+
+/* =========================================
+   HTML ESCAPE
+========================================= */
+
 function esc(value = '') {
+
   return String(value).replace(
     /[&<>'"]/g,
     character => ({
@@ -158,63 +273,105 @@ function esc(value = '') {
   );
 }
 
+
+/* =========================================
+   MODERATION DASHBOARD
+========================================= */
+
 function renderModeration() {
+
   const filterElement =
-    document.getElementById('modFilter');
+    document.getElementById(
+      'modFilter'
+    );
 
   const box =
-    document.getElementById('modList');
+    document.getElementById(
+      'modList'
+    );
 
-  if (!filterElement || !box) return;
+  if (!filterElement || !box) {
+    return;
+  }
 
-  const all = getRequests();
+  const all =
+    getRequests();
 
-  const filter = filterElement.value;
+  const filter =
+    filterElement.value;
 
   const list =
     filter === 'All'
       ? all
-      : all.filter(item => item.status === filter);
+      : all.filter(
+          item =>
+            item.status === filter
+        );
+
 
   const pending =
-    document.getElementById('statPending');
+    document.getElementById(
+      'statPending'
+    );
 
   const reviewing =
-    document.getElementById('statReviewing');
+    document.getElementById(
+      'statReviewing'
+    );
 
   const accepted =
-    document.getElementById('statAccepted');
+    document.getElementById(
+      'statAccepted'
+    );
 
   const rejected =
-    document.getElementById('statRejected');
+    document.getElementById(
+      'statRejected'
+    );
+
 
   if (pending) {
     pending.textContent =
-      all.filter(x => x.status === 'Pending').length;
+      all.filter(
+        x =>
+          x.status === 'Pending'
+      ).length;
   }
 
   if (reviewing) {
     reviewing.textContent =
-      all.filter(x => x.status === 'Reviewing').length;
+      all.filter(
+        x =>
+          x.status === 'Reviewing'
+      ).length;
   }
 
   if (accepted) {
     accepted.textContent =
-      all.filter(x => x.status === 'Accepted').length;
+      all.filter(
+        x =>
+          x.status === 'Accepted'
+      ).length;
   }
 
   if (rejected) {
     rejected.textContent =
-      all.filter(x => x.status === 'Rejected').length;
+      all.filter(
+        x =>
+          x.status === 'Rejected'
+      ).length;
   }
 
+
   if (!list.length) {
+
     box.innerHTML = `
       <div class="empty-mod">
         <div>◆</div>
         <h3>No requests here</h3>
         <p>
-          New public submissions will appear in this dashboard.
+          New public submissions will appear
+          in this dashboard.
         </p>
       </div>
     `;
@@ -222,155 +379,218 @@ function renderModeration() {
     return;
   }
 
-  box.innerHTML = list.map(item => `
-    <article class="mod-item">
 
-      <div class="mod-item-head">
+  box.innerHTML =
+    list
+      .map(item => `
 
-        <div>
+        <article class="mod-item">
 
-          <span class="type-badge">
-            ${esc(item.type)}
-          </span>
+          <div class="mod-item-head">
 
-          <h3>
-            ${esc(item.username)}
-          </h3>
+            <div>
 
-          <small>
-            ${esc(item.createdAt)}
-            · ID ${esc(item.id)}
-          </small>
+              <span class="type-badge">
+                ${esc(item.type)}
+              </span>
 
-        </div>
+              <h3>
+                ${esc(item.username)}
+              </h3>
 
-        <span
-          class="status-dot-badge ${esc(
-            item.status.toLowerCase()
-          )}"
-        >
-          ${esc(item.status)}
-        </span>
+              <small>
+                ${esc(item.createdAt)}
+                · ID ${esc(item.id)}
+              </small>
 
-      </div>
+            </div>
 
-      <div class="request-body">
-
-        <div>
-
-          <b>
-            ${esc(item.reason || 'Request')}
-          </b>
-
-          <p>
-            ${esc(item.description)}
-          </p>
-
-          ${
-            item.evidence
-              ? `
-                <a
-                  href="${esc(item.evidence)}"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  Evidence link ↗
-                </a>
-              `
-              : ''
-          }
-
-        </div>
-
-        <div class="mod-controls">
-
-          <label>
-            Status
-
-            <select
-              onchange="changeStatus(
-                '${esc(item.id)}',
-                this.value
-              )"
+            <span
+              class="
+                status-dot-badge
+                ${esc(
+                  item.status.toLowerCase()
+                )}
+              "
             >
-              ${statuses
-                .map(
-                  status => `
-                    <option
-                      ${
-                        status === item.status
-                          ? 'selected'
-                          : ''
-                      }
+              ${esc(item.status)}
+            </span>
+
+          </div>
+
+
+          <div class="request-body">
+
+            <div>
+
+              <b>
+                ${esc(
+                  item.reason ||
+                  'Request'
+                )}
+              </b>
+
+              <p>
+                ${esc(
+                  item.description
+                )}
+              </p>
+
+              ${
+                item.evidence
+                  ? `
+                    <a
+                      href="${esc(
+                        item.evidence
+                      )}"
+                      target="_blank"
+                      rel="noopener"
                     >
-                      ${status}
-                    </option>
+                      Evidence link ↗
+                    </a>
                   `
-                )
-                .join('')}
-            </select>
+                  : ''
+              }
 
-          </label>
+            </div>
 
-          <label>
-            Moderator note
 
-            <textarea
-              id="note-${esc(item.id)}"
-              placeholder="Internal note..."
-            >${esc(item.note)}</textarea>
+            <div class="mod-controls">
 
-          </label>
+              <label>
+                Status
 
-          <button
-            class="save-note"
-            onclick="saveNote('${esc(item.id)}')"
-          >
-            Save note
-          </button>
+                <select
+                  onchange="
+                    changeStatus(
+                      '${esc(item.id)}',
+                      this.value
+                    )
+                  "
+                >
 
-        </div>
+                  ${statuses
+                    .map(
+                      status => `
+                        <option
+                          ${
+                            status ===
+                            item.status
+                              ? 'selected'
+                              : ''
+                          }
+                        >
+                          ${status}
+                        </option>
+                      `
+                    )
+                    .join('')}
 
-      </div>
+                </select>
 
-    </article>
-  `).join('');
+              </label>
+
+
+              <label>
+
+                Moderator note
+
+                <textarea
+                  id="note-${esc(
+                    item.id
+                  )}"
+                  placeholder="Internal note..."
+                >${esc(
+                  item.note
+                )}</textarea>
+
+              </label>
+
+
+              <button
+                class="save-note"
+                onclick="
+                  saveNote(
+                    '${esc(item.id)}'
+                  )
+                "
+              >
+                Save note
+              </button>
+
+            </div>
+
+          </div>
+
+        </article>
+
+      `)
+      .join('');
 }
 
-function changeStatus(id, status) {
-  const all = getRequests();
 
-  const item = all.find(
-    request => request.id === id
-  );
+/* =========================================
+   CHANGE STATUS
+========================================= */
+
+function changeStatus(
+  id,
+  status
+) {
+
+  const all =
+    getRequests();
+
+  const item =
+    all.find(
+      request =>
+        request.id === id
+    );
 
   if (!item) return;
 
-  item.status = status;
+  item.status =
+    status;
 
   saveRequests(all);
 
   renderModeration();
 
   toast(
-    'Status updated to ' + status + '.',
+    'Status updated to ' +
+      status +
+      '.',
     'Updated!'
   );
 }
 
+
+/* =========================================
+   SAVE MODERATOR NOTE
+========================================= */
+
 function saveNote(id) {
+
   const textarea =
-    document.getElementById('note-' + id);
+    document.getElementById(
+      'note-' + id
+    );
 
-  const all = getRequests();
+  const all =
+    getRequests();
 
-  const item = all.find(
-    request => request.id === id
-  );
+  const item =
+    all.find(
+      request =>
+        request.id === id
+    );
 
-  if (!item || !textarea) return;
+  if (!item || !textarea) {
+    return;
+  }
 
-  item.note = textarea.value;
+  item.note =
+    textarea.value;
 
   saveRequests(all);
 
@@ -380,411 +600,349 @@ function saveNote(id) {
   );
 }
 
+
 const modFilter =
-  document.getElementById('modFilter');
+  document.getElementById(
+    'modFilter'
+  );
 
 if (modFilter) {
+
   modFilter.addEventListener(
     'change',
     renderModeration
   );
 }
 
-/* ================================
+
+/* =========================================
    LOADING SCREEN
-================================ */
-
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const loader =
-      document.getElementById('loader');
-
-    if (loader) {
-      loader.classList.add('done');
-    }
-
-    document.body.style.overflow = 'auto';
-  }, 2550);
-});
-
-
-/* ================================
-   GOOGLE STAFF AUTHENTICATION
-================================ */
-
-const GOOGLE_CLIENT_ID =
-  '148690866861-krt7sfvat6dj5aahbse3c0jcsnshbljn.apps.googleusercontent.com';
-
-const ALLOWED_STAFF = new Set([
-  'contactkyrixpixel@gmail.com'
-]);
-
-const authGate =
-  document.getElementById('authGate');
-
-const googleSignIn =
-  document.getElementById('googleSignIn');
-
-const modNav =
-  document.getElementById('modNav');
-
-const signOutBtn =
-  document.getElementById('signOut');
-
-const avatar =
-  document.getElementById('avatar');
-
-const authError =
-  document.getElementById('authError');
-
-let staffEmail = '';
-
-let googleReady = false;
-
-
-/* Decode Google's ID token */
-
-function decodeJwt(token) {
-  try {
-    const parts = token.split('.');
-
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    const part = parts[1];
-
-    const normalized = part
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    const padded =
-      normalized +
-      '='.repeat(
-        (4 - normalized.length % 4) % 4
-      );
-
-    return JSON.parse(
-      atob(padded)
-    );
-
-  } catch {
-    return null;
-  }
-}
-
-
-/* Show staff UI */
-
-function setStaffUI(
-  email,
-  name = 'Staff'
-) {
-  staffEmail = email;
-
-  if (authGate) {
-    authGate.style.display = 'none';
-  }
-
-  if (modNav) {
-    modNav.hidden = false;
-  }
-
-  if (signOutBtn) {
-    signOutBtn.hidden = false;
-  }
-
-  if (avatar) {
-    avatar.textContent =
-      (name || email)
-        .trim()
-        .slice(0, 2)
-        .toUpperCase();
-  }
-}
-
-
-/* Handle successful Google login */
-
-function finishStaffLogin(response) {
-  if (authError) {
-    authError.textContent = '';
-  }
-
-  if (!response || !response.credential) {
-    if (authError) {
-      authError.textContent =
-        'Google did not return a sign-in credential. Please try again.';
-    }
-
-    return;
-  }
-
-  const data =
-    decodeJwt(response.credential);
-
-  const email =
-    (data?.email || '')
-      .toLowerCase()
-      .trim();
-
-  if (!data || !data.email_verified) {
-    if (authError) {
-      authError.textContent =
-        'Your Google email could not be verified.';
-    }
-
-    return;
-  }
-
-  if (!ALLOWED_STAFF.has(email)) {
-    if (authError) {
-      authError.textContent =
-        'This Google account is not authorized for the SP staff dashboard.';
-    }
-
-    if (
-      typeof google !== 'undefined' &&
-      google.accounts?.id
-    ) {
-      google.accounts.id.disableAutoSelect();
-    }
-
-    return;
-  }
-
-  sessionStorage.setItem(
-    'sp_staff_email',
-    email
-  );
-
-  sessionStorage.setItem(
-    'sp_staff_name',
-    data.name || email
-  );
-
-  setStaffUI(
-    email,
-    data.name || email
-  );
-
-  toast(
-    'Signed in as ' + email + '.',
-    'Welcome!'
-  );
-}
-
-
-/* Google error */
-
-function showGoogleError(message) {
-  if (authError) {
-    authError.textContent = message;
-  }
-
-  googleReady = false;
-}
-
-
-/* Initialize Google */
-
-function initGoogle() {
-
-  if (googleReady) {
-    return;
-  }
-
-  if (
-    typeof google === 'undefined' ||
-    !google.accounts?.id
-  ) {
-    setTimeout(
-      initGoogle,
-      200
-    );
-
-    return;
-  }
-
-  if (
-    !GOOGLE_CLIENT_ID ||
-    GOOGLE_CLIENT_ID.startsWith('YOUR_')
-  ) {
-    showGoogleError(
-      'Add your Google OAuth Web Client ID to script.js first.'
-    );
-
-    return;
-  }
-
-  try {
-
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-
-      callback: finishStaffLogin,
-
-      auto_select: false,
-
-      cancel_on_tap_outside: true,
-
-      context: 'signin',
-
-      use_fedcm_for_button: false
-    });
-
-    googleReady = true;
-
-    if (googleSignIn) {
-      googleSignIn.disabled = false;
-
-      googleSignIn.onclick = () => {
-
-        if (
-          typeof google === 'undefined' ||
-          !google.accounts?.id
-        ) {
-          showGoogleError(
-            'Google Sign-In has not loaded yet. Please wait a moment and try again.'
-          );
-
-          return;
-        }
-
-        authError.textContent = '';
-
-        google.accounts.id.prompt(
-          notification => {
-
-            if (
-              notification.isNotDisplayed() ||
-              notification.isSkippedMoment()
-            ) {
-
-              let reason =
-                'Google sign-in could not open.';
-
-              if (
-                notification.getNotDisplayedReason
-              ) {
-                const notDisplayedReason =
-                  notification.getNotDisplayedReason();
-
-                console.log(
-                  'Google not displayed:',
-                  notDisplayedReason
-                );
-              }
-
-              if (
-                notification.getSkippedReason
-              ) {
-                const skippedReason =
-                  notification.getSkippedReason();
-
-                console.log(
-                  'Google skipped:',
-                  skippedReason
-                );
-              }
-
-              authError.textContent =
-                reason +
-                ' Please check your Google OAuth settings and Authorized JavaScript origins.';
-            }
-          }
-        );
-      };
-    }
-
-  } catch (error) {
-
-    console.error(
-      'Google initialization error:',
-      error
-    );
-
-    showGoogleError(
-      'Google sign-in failed to initialize. Check your OAuth client ID and website origin.'
-    );
-  }
-}
-
-
-/* ================================
-   SIGN OUT
-================================ */
-
-if (signOutBtn) {
-
-  signOutBtn.onclick = () => {
-
-    staffEmail = '';
-
-    sessionStorage.removeItem(
-      'sp_staff_email'
-    );
-
-    sessionStorage.removeItem(
-      'sp_staff_name'
-    );
-
-    if (modNav) {
-      modNav.hidden = true;
-    }
-
-    signOutBtn.hidden = true;
-
-    if (authGate) {
-      authGate.style.display = 'flex';
-    }
-
-    if (authError) {
-      authError.textContent = '';
-    }
-
-    showPage('dashboard');
-
-    if (
-      typeof google !== 'undefined' &&
-      google.accounts?.id
-    ) {
-      google.accounts.id.disableAutoSelect();
-    }
-  };
-
-}
-
-
-/* ================================
-   START GOOGLE AUTH
-================================ */
+========================================= */
 
 window.addEventListener(
   'load',
   () => {
 
-    const saved =
-      sessionStorage.getItem(
-        'sp_staff_email'
-      );
+    setTimeout(() => {
 
-    const savedName =
-      sessionStorage.getItem(
-        'sp_staff_name'
-      ) || 'Staff';
+      const loader =
+        document.getElementById(
+          'loader'
+        );
 
-    if (
-      saved &&
-      ALLOWED_STAFF.has(saved)
-    ) {
-      setStaffUI(
-        saved,
-        savedName
-      );
+      if (loader) {
+        loader.classList.add(
+          'done'
+        );
+      }
+
+      document.body.style.overflow =
+        'auto';
+
+    }, 2550);
+  }
+);
+
+
+/* =========================================
+   ROBLOX STAFF LOGIN
+========================================= */
+
+const authGate =
+  document.getElementById(
+    'authGate'
+  );
+
+const modNav =
+  document.getElementById(
+    'modNav'
+  );
+
+const signOutBtn =
+  document.getElementById(
+    'signOut'
+  );
+
+const avatar =
+  document.getElementById(
+    'avatar'
+  );
+
+const authError =
+  document.getElementById(
+    'authError'
+  );
+
+const robloxUsernameInput =
+  document.getElementById(
+    'robloxUsername'
+  );
+
+const robloxUserIdInput =
+  document.getElementById(
+    'robloxUserId'
+  );
+
+const robloxLoginButton =
+  document.getElementById(
+    'robloxLogin'
+  );
+
+
+/* =========================================
+   CHECK STAFF
+========================================= */
+
+function isStaff(
+  username,
+  userId
+) {
+
+  const cleanUsername =
+    String(username || '')
+      .trim()
+      .toLowerCase();
+
+  const cleanUserId =
+    String(userId || '')
+      .trim();
+
+
+  const idMatch =
+    STAFF_USER_IDS.some(
+      id =>
+        String(id)
+          .trim() ===
+        cleanUserId
+    );
+
+
+  const usernameMatch =
+    STAFF_USERNAMES.some(
+      name =>
+        String(name)
+          .trim()
+          .toLowerCase() ===
+        cleanUsername
+    );
+
+
+  return (
+    idMatch ||
+    usernameMatch
+  );
+}
+
+
+/* =========================================
+   SET STAFF UI
+========================================= */
+
+function setStaffUI(
+  username,
+  userId
+) {
+
+  if (authGate) {
+    authGate.style.display =
+      'none';
+  }
+
+  if (modNav) {
+    modNav.hidden =
+      false;
+  }
+
+  if (signOutBtn) {
+    signOutBtn.hidden =
+      false;
+  }
+
+  if (avatar) {
+
+    avatar.textContent =
+      String(
+        username ||
+        'Staff'
+      )
+        .trim()
+        .slice(0, 2)
+        .toUpperCase();
+  }
+
+
+  sessionStorage.setItem(
+    'sp_staff_username',
+    username
+  );
+
+  sessionStorage.setItem(
+    'sp_staff_userid',
+    userId
+  );
+}
+
+
+/* =========================================
+   ROBLOX LOGIN
+========================================= */
+
+function robloxLogin() {
+
+  if (authError) {
+    authError.textContent =
+      '';
+  }
+
+
+  const username =
+    robloxUsernameInput
+      ? robloxUsernameInput.value
+      : '';
+
+  const userId =
+    robloxUserIdInput
+      ? robloxUserIdInput.value
+      : '';
+
+
+  if (!username && !userId) {
+
+    if (authError) {
+      authError.textContent =
+        'Enter your Roblox username or User ID.';
     }
 
-    initGoogle();
+    return;
+  }
+
+
+  if (
+    !isStaff(
+      username,
+      userId
+    )
+  ) {
+
+    if (authError) {
+      authError.textContent =
+        'This Roblox account is not authorized for the SP staff dashboard.';
+    }
+
+    return;
+  }
+
+
+  setStaffUI(
+    username || 'Staff',
+    userId || ''
+  );
+
+
+  toast(
+    'Staff access granted.',
+    'Welcome!'
+  );
+}
+
+
+if (robloxLoginButton) {
+
+  robloxLoginButton.addEventListener(
+    'click',
+    robloxLogin
+  );
+}
+
+
+/* =========================================
+   SIGN OUT
+========================================= */
+
+if (signOutBtn) {
+
+  signOutBtn.onclick = () => {
+
+    sessionStorage.removeItem(
+      'sp_staff_username'
+    );
+
+    sessionStorage.removeItem(
+      'sp_staff_userid'
+    );
+
+
+    if (modNav) {
+      modNav.hidden =
+        true;
+    }
+
+    signOutBtn.hidden =
+      true;
+
+
+    if (authGate) {
+      authGate.style.display =
+        'flex';
+    }
+
+
+    if (authError) {
+      authError.textContent =
+        '';
+    }
+
+
+    if (robloxUsernameInput) {
+      robloxUsernameInput.value =
+        '';
+    }
+
+    if (robloxUserIdInput) {
+      robloxUserIdInput.value =
+        '';
+    }
+
+
+    showPage(
+      'dashboard'
+    );
+  };
+}
+
+
+/* =========================================
+   RESTORE STAFF SESSION
+========================================= */
+
+window.addEventListener(
+  'load',
+  () => {
+
+    const savedUsername =
+      sessionStorage.getItem(
+        'sp_staff_username'
+      );
+
+    const savedUserId =
+      sessionStorage.getItem(
+        'sp_staff_userid'
+      );
+
+
+    if (
+      savedUsername &&
+      isStaff(
+        savedUsername,
+        savedUserId
+      )
+    ) {
+
+      setStaffUI(
+        savedUsername,
+        savedUserId
+      );
+    }
 
   }
 );
