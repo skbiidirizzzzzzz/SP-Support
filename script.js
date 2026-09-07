@@ -16,7 +16,7 @@ document.getElementById('modFilter').addEventListener('change',renderModeration)
 window.addEventListener('load',()=>setTimeout(()=>{document.getElementById('loader').classList.add('done');document.body.style.overflow='auto'},2550));
 // Staff authentication: Google Identity Services + allowlist.
 // Put your Google OAuth 2.0 Web Client ID here.
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '148690866861-krt7sfvat6dj5aahbse3c0jcsnshbljn.apps.googleusercontent.com';
 const ALLOWED_STAFF = new Set(['contactkyrixpixel@gmail.com']);
 const authGate = document.getElementById('authGate');
 const googleSignIn = document.getElementById('googleSignIn');
