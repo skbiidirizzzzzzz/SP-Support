@@ -1,948 +1,1306 @@
-const pages = [...document.querySelectorAll('.page')];
-const navs = [...document.querySelectorAll('.nav')];
-const title = document.getElementById('pageTitle');
+/* =========================================================
+   SP SUPPORT - SCRIPT.JS
+   Roblox Staff Login
+   ========================================================= */
 
-const titles = {
-  dashboard: 'How can we help?',
-  reports: 'Game Reports',
-  appeals: 'Appeals',
-  tickets: 'Other Tickets',
-  forms: 'Forms',
-  moderation: 'Moderation Dashboard'
-};
 
-const statuses = [
-  'Pending',
-  'Reviewing',
-  'Reviewed',
-  'Accepted',
-  'Rejected',
-  'Closed'
-];
-
-/* =========================================
-   STAFF SETTINGS
-   =========================================
-   
-   Put the Roblox User IDs of your staff here.
-
-   Example:
-   const STAFF_USER_IDS = [
-     '123456789',
-     '987654321'
-   ];
-
-   You can add as many as you want.
-*/
+/* =========================
+   STAFF CONFIG
+   ========================= */
 
 const STAFF_USER_IDS = [
-  '11638098536'
+    "11638098536"
 ];
-
-/*
-   You can also allow usernames.
-
-   Example:
-   const STAFF_USERNAMES = [
-     'YourUsername',
-     'ModeratorUsername'
-   ];
-*/
 
 const STAFF_USERNAMES = [
-  'zjehoua'
+    "zjehoua"
 ];
 
 
-/* =========================================
-   REQUEST STORAGE
-========================================= */
+/* =========================
+   STORAGE KEYS
+   ========================= */
 
-function getRequests() {
-  try {
-    return JSON.parse(
-      localStorage.getItem('sp_support_requests') || '[]'
-    );
-  } catch {
-    return [];
-  }
+const REPORTS_KEY = "sp_support_reports";
+const APPEALS_KEY = "sp_support_appeals";
+const TICKETS_KEY = "sp_support_tickets";
+const STAFF_SESSION_KEY = "sp_support_staff_session";
+
+
+/* =========================
+   HELPERS
+   ========================= */
+
+function $(id) {
+    return document.getElementById(id);
 }
 
-function saveRequests(value) {
-  localStorage.setItem(
-    'sp_support_requests',
-    JSON.stringify(value)
-  );
-}
-
-
-/* =========================================
-   PAGE NAVIGATION
-========================================= */
-
-function showPage(id) {
-  pages.forEach(page => {
-    page.classList.toggle(
-      'active',
-      page.id === id
-    );
-  });
-
-  navs.forEach(nav => {
-    nav.classList.toggle(
-      'active',
-      nav.dataset.page === id
-    );
-  });
-
-  title.textContent =
-    titles[id] || 'SP Support';
-
-  const main =
-    document.querySelector('.main');
-
-  if (main) {
-    main.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  }
-
-  if (id === 'moderation') {
-    renderModeration();
-  }
-}
-
-
-document.addEventListener(
-  'click',
-  event => {
-
-    const element =
-      event.target.closest('[data-page]');
-
-    if (element) {
-      showPage(
-        element.dataset.page
-      );
+function getJSON(key, fallback = []) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : fallback;
+    } catch (error) {
+        return fallback;
     }
-  }
-);
+}
 
+function saveJSON(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+}
 
-/* =========================================
-   SIDEBAR
-========================================= */
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-const collapseButton =
-  document.getElementById('collapse');
+function makeID(prefix = "SP") {
+    return (
+        prefix +
+        "-" +
+        Date.now() +
+        "-" +
+        Math.random()
+            .toString(36)
+            .substring(2, 8)
+            .toUpperCase()
+    );
+}
 
-if (collapseButton) {
-
-  collapseButton.onclick = () => {
-
-    document
-      .getElementById('sidebar')
-      ?.classList.toggle('collapsed');
-
-    document
-      .querySelector('.main')
-      ?.classList.toggle('shift');
-  };
+function formatDate(date) {
+    return new Date(date).toLocaleString();
 }
 
 
-/* =========================================
-   TOAST
-========================================= */
+/* =========================
+   STAFF AUTHENTICATION
+   ========================= */
 
-function toast(
-  message,
-  bold = 'Submitted!'
-) {
+function isStaff(username, userId) {
+    const cleanUsername = String(username || "")
+        .trim()
+        .toLowerCase();
 
-  const toastElement =
-    document.getElementById('toast');
+    const cleanUserId = String(userId || "").trim();
 
-  if (!toastElement) return;
+    const idAllowed =
+        cleanUserId !== "" &&
+        STAFF_USER_IDS.includes(cleanUserId);
 
-  const boldElement =
-    toastElement.querySelector('b');
+    const usernameAllowed =
+        cleanUsername !== "" &&
+        STAFF_USERNAMES.some(
+            name => name.toLowerCase() === cleanUsername
+        );
 
-  const messageElement =
-    toastElement.querySelector('span');
-
-  if (boldElement) {
-    boldElement.textContent = bold;
-  }
-
-  if (messageElement) {
-    messageElement.textContent = message;
-  }
-
-  toastElement.classList.add('show');
-
-  setTimeout(() => {
-    toastElement.classList.remove('show');
-  }, 4000);
+    return idAllowed || usernameAllowed;
 }
 
 
-/* =========================================
-   SUBMIT REPORT / APPEAL / TICKET
-========================================= */
+function getStaffSession() {
+    try {
+        const session = sessionStorage.getItem(
+            STAFF_SESSION_KEY
+        );
 
-function submitRequest(
-  event,
-  type
-) {
+        return session ? JSON.parse(session) : null;
+    } catch (error) {
+        return null;
+    }
+}
 
-  event.preventDefault();
 
-  const data =
-    Object.fromEntries(
-      new FormData(
-        event.target
-      ).entries()
+function setStaffUI(staff) {
+    const authGate = $("authGate");
+    const modNav = $("modNav");
+    const signOut = $("signOut");
+    const avatar = $("avatar");
+
+    if (staff) {
+
+        if (authGate) {
+            authGate.classList.add("hidden");
+        }
+
+        if (modNav) {
+            modNav.classList.remove("hidden");
+        }
+
+        if (signOut) {
+            signOut.classList.remove("hidden");
+        }
+
+        if (avatar) {
+            avatar.textContent = String(
+                staff.username || "S"
+            )
+                .charAt(0)
+                .toUpperCase();
+        }
+
+    } else {
+
+        if (authGate) {
+            authGate.classList.remove("hidden");
+        }
+
+        if (modNav) {
+            modNav.classList.add("hidden");
+        }
+
+        if (signOut) {
+            signOut.classList.add("hidden");
+        }
+
+        if (avatar) {
+            avatar.textContent = "S";
+        }
+    }
+}
+
+
+/* =========================
+   ROBLOX STAFF LOGIN
+   ========================= */
+
+function robloxLogin() {
+    const usernameInput = $("robloxUsername");
+    const userIdInput = $("robloxUserId");
+    const error = $("authError");
+
+    if (!usernameInput || !userIdInput) {
+        console.error(
+            "Missing robloxUsername or robloxUserId element."
+        );
+        return;
+    }
+
+    const username = usernameInput.value.trim();
+    const userId = userIdInput.value.trim();
+
+    if (!username && !userId) {
+
+        if (error) {
+            error.textContent =
+                "Enter your Roblox username or User ID.";
+
+            error.classList.remove("hidden");
+        }
+
+        return;
+    }
+
+    if (!isStaff(username, userId)) {
+
+        if (error) {
+            error.textContent =
+                "You are not authorized as SP staff.";
+
+            error.classList.remove("hidden");
+        }
+
+        return;
+    }
+
+    const staff = {
+        username: username || "Staff",
+        userId: userId || "",
+        loggedInAt: Date.now()
+    };
+
+    sessionStorage.setItem(
+        STAFF_SESSION_KEY,
+        JSON.stringify(staff)
     );
 
-  const item = {
+    if (error) {
+        error.textContent = "";
+        error.classList.add("hidden");
+    }
 
-    id:
-      Date.now().toString(36) +
-      Math.random()
-        .toString(36)
-        .slice(2, 7),
+    setStaffUI(staff);
 
+    showPage("moderation");
+
+    showToast("Staff login successful.");
+}
+
+
+function signOutStaff() {
+    sessionStorage.removeItem(
+        STAFF_SESSION_KEY
+    );
+
+    setStaffUI(null);
+
+    showPage("dashboard");
+
+    showToast("Signed out.");
+}
+
+
+/* =========================
+   TOAST
+   ========================= */
+
+function showToast(message) {
+    let toast = $("toast");
+
+    if (!toast) {
+        toast = document.createElement("div");
+
+        toast.id = "toast";
+        toast.className = "toast";
+
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+
+    toast.classList.add("show");
+
+    clearTimeout(window.spToastTimer);
+
+    window.spToastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+    }, 3000);
+}
+
+
+/* =========================
+   PAGE NAVIGATION
+   ========================= */
+
+function showPage(page) {
+
+    document.querySelectorAll(".page").forEach(
+        element => {
+            element.classList.remove("active");
+        }
+    );
+
+    const target = $("page-" + page);
+
+    if (target) {
+        target.classList.add("active");
+    }
+
+    document.querySelectorAll("[data-page]").forEach(
+        button => {
+            button.classList.toggle(
+                "active",
+                button.dataset.page === page
+            );
+        }
+    );
+
+    if (page === "moderation") {
+
+        const staff = getStaffSession();
+
+        if (
+            !staff ||
+            !isStaff(
+                staff.username,
+                staff.userId
+            )
+        ) {
+
+            showPage("dashboard");
+
+            const authGate = $("authGate");
+
+            if (authGate) {
+                authGate.classList.remove("hidden");
+            }
+
+            showToast(
+                "Staff login required."
+            );
+
+            return;
+        }
+
+        renderModeration();
+    }
+}
+
+
+/* =========================
+   REPORTS
+   ========================= */
+
+function submitReport() {
+
+    const username = $("reportUsername");
+    const reason = $("reportReason");
+    const details = $("reportDetails");
+
+    if (!username || !reason) {
+        return;
+    }
+
+    const targetUsername =
+        username.value.trim();
+
+    const selectedReason =
+        reason.value;
+
+    const reportDetails =
+        details ? details.value.trim() : "";
+
+    if (
+        !targetUsername ||
+        !selectedReason
+    ) {
+
+        showToast(
+            "Please complete the required fields."
+        );
+
+        return;
+    }
+
+    const reports =
+        getJSON(REPORTS_KEY);
+
+    const report = {
+        id: makeID("REPORT"),
+        username: targetUsername,
+        reason: selectedReason,
+        details: reportDetails,
+        status: "Pending",
+        moderatorNote: "",
+        createdAt:
+            new Date().toISOString()
+    };
+
+    reports.unshift(report);
+
+    saveJSON(
+        REPORTS_KEY,
+        reports
+    );
+
+    username.value = "";
+    reason.value = "";
+
+    if (details) {
+        details.value = "";
+    }
+
+    showToast(
+        "Report submitted."
+    );
+}
+
+
+/* =========================
+   APPEALS
+   ========================= */
+
+function submitAppeal() {
+
+    const username =
+        $("appealUsername");
+
+    const reason =
+        $("appealReason");
+
+    const details =
+        $("appealDetails");
+
+    if (!username || !details) {
+        return;
+    }
+
+    const robloxUsername =
+        username.value.trim();
+
+    const appealReason =
+        reason && reason.value
+            ? reason.value
+            : "Ban Appeal";
+
+    const appealDetails =
+        details.value.trim();
+
+    if (
+        !robloxUsername ||
+        !appealDetails
+    ) {
+
+        showToast(
+            "Please complete the required fields."
+        );
+
+        return;
+    }
+
+    const appeals =
+        getJSON(APPEALS_KEY);
+
+    const appeal = {
+        id: makeID("APPEAL"),
+        username: robloxUsername,
+        reason: appealReason,
+        details: appealDetails,
+        status: "Pending",
+        moderatorNote: "",
+        createdAt:
+            new Date().toISOString()
+    };
+
+    appeals.unshift(appeal);
+
+    saveJSON(
+        APPEALS_KEY,
+        appeals
+    );
+
+    username.value = "";
+
+    if (reason) {
+        reason.value = "";
+    }
+
+    details.value = "";
+
+    showToast(
+        "Appeal submitted."
+    );
+}
+
+
+/* =========================
+   TICKETS
+   ========================= */
+
+function submitTicket() {
+
+    const username =
+        $("ticketUsername");
+
+    const subject =
+        $("ticketSubject");
+
+    const details =
+        $("ticketDetails");
+
+    if (
+        !username ||
+        !subject ||
+        !details
+    ) {
+        return;
+    }
+
+    const robloxUsername =
+        username.value.trim();
+
+    const ticketSubject =
+        subject.value.trim();
+
+    const ticketDetails =
+        details.value.trim();
+
+    if (
+        !robloxUsername ||
+        !ticketSubject ||
+        !ticketDetails
+    ) {
+
+        showToast(
+            "Please complete the required fields."
+        );
+
+        return;
+    }
+
+    const tickets =
+        getJSON(TICKETS_KEY);
+
+    const ticket = {
+        id: makeID("TICKET"),
+        username: robloxUsername,
+        subject: ticketSubject,
+        details: ticketDetails,
+        status: "Pending",
+        moderatorNote: "",
+        createdAt:
+            new Date().toISOString()
+    };
+
+    tickets.unshift(ticket);
+
+    saveJSON(
+        TICKETS_KEY,
+        tickets
+    );
+
+    username.value = "";
+    subject.value = "";
+    details.value = "";
+
+    showToast(
+        "Ticket submitted."
+    );
+}
+
+
+/* =========================
+   GET ALL SUBMISSIONS
+   ========================= */
+
+function getAllSubmissions() {
+
+    const reports =
+        getJSON(REPORTS_KEY).map(
+            item => ({
+                ...item,
+                type: "Game Report"
+            })
+        );
+
+    const appeals =
+        getJSON(APPEALS_KEY).map(
+            item => ({
+                ...item,
+                type: "Appeal"
+            })
+        );
+
+    const tickets =
+        getJSON(TICKETS_KEY).map(
+            item => ({
+                ...item,
+                type: "Ticket"
+            })
+        );
+
+    return [
+        ...reports,
+        ...appeals,
+        ...tickets
+    ].sort(
+        (a, b) =>
+            new Date(b.createdAt) -
+            new Date(a.createdAt)
+    );
+}
+
+
+/* =========================
+   UPDATE SUBMISSION
+   ========================= */
+
+function getStorageKey(type) {
+
+    if (type === "Game Report") {
+        return REPORTS_KEY;
+    }
+
+    if (type === "Appeal") {
+        return APPEALS_KEY;
+    }
+
+    return TICKETS_KEY;
+}
+
+
+function updateSubmission(
     type,
+    id,
+    status,
+    note
+) {
 
-    username:
-      data.username || '',
+    const key =
+        getStorageKey(type);
 
-    reason:
-      data.reason || '',
+    const items =
+        getJSON(key);
 
-    description:
-      data.description || '',
+    const index =
+        items.findIndex(
+            item => item.id === id
+        );
 
-    evidence:
-      data.evidence || '',
+    if (index === -1) {
+        return;
+    }
 
-    status:
-      'Pending',
+    items[index].status =
+        status;
 
-    note:
-      '',
+    items[index].moderatorNote =
+        note;
 
-    createdAt:
-      new Date().toLocaleString()
-  };
+    items[index].updatedAt =
+        new Date().toISOString();
 
-  const all =
-    getRequests();
+    const staff =
+        getStaffSession();
 
-  all.unshift(item);
+    if (staff) {
+        items[index].reviewedBy =
+            staff.username;
+    }
 
-  saveRequests(all);
+    saveJSON(
+        key,
+        items
+    );
 
-  event.target.reset();
+    renderModeration();
 
-  toast(
-    type +
-      ' received and marked Pending.',
-    'Submitted!'
-  );
+    showToast(
+        "Submission updated."
+    );
 }
 
 
-/* =========================================
-   HTML ESCAPE
-========================================= */
+/* =========================
+   DELETE SUBMISSION
+   ========================= */
 
-function esc(value = '') {
+function deleteSubmission(
+    type,
+    id
+) {
 
-  return String(value).replace(
-    /[&<>'"]/g,
-    character => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      "'": '&#39;',
-      '"': '&quot;'
-    })[character]
-  );
+    const key =
+        getStorageKey(type);
+
+    const items =
+        getJSON(key);
+
+    const filtered =
+        items.filter(
+            item => item.id !== id
+        );
+
+    saveJSON(
+        key,
+        filtered
+    );
+
+    renderModeration();
+
+    showToast(
+        "Submission deleted."
+    );
 }
 
 
-/* =========================================
+/* =========================
    MODERATION DASHBOARD
-========================================= */
+   ========================= */
 
 function renderModeration() {
 
-  const filterElement =
-    document.getElementById(
-      'modFilter'
+    const container =
+        $("moderationList");
+
+    if (!container) {
+        return;
+    }
+
+    const submissions =
+        getAllSubmissions();
+
+    const filter =
+        $("statusFilter");
+
+    const selectedStatus =
+        filter && filter.value
+            ? filter.value
+            : "All";
+
+    const filtered =
+        selectedStatus === "All"
+            ? submissions
+            : submissions.filter(
+                item =>
+                    item.status ===
+                    selectedStatus
+            );
+
+    updateModerationCounters(
+        submissions
     );
 
-  const box =
-    document.getElementById(
-      'modList'
-    );
+    if (!filtered.length) {
 
-  if (!filterElement || !box) {
-    return;
-  }
-
-  const all =
-    getRequests();
-
-  const filter =
-    filterElement.value;
-
-  const list =
-    filter === 'All'
-      ? all
-      : all.filter(
-          item =>
-            item.status === filter
-        );
-
-
-  const pending =
-    document.getElementById(
-      'statPending'
-    );
-
-  const reviewing =
-    document.getElementById(
-      'statReviewing'
-    );
-
-  const accepted =
-    document.getElementById(
-      'statAccepted'
-    );
-
-  const rejected =
-    document.getElementById(
-      'statRejected'
-    );
-
-
-  if (pending) {
-    pending.textContent =
-      all.filter(
-        x =>
-          x.status === 'Pending'
-      ).length;
-  }
-
-  if (reviewing) {
-    reviewing.textContent =
-      all.filter(
-        x =>
-          x.status === 'Reviewing'
-      ).length;
-  }
-
-  if (accepted) {
-    accepted.textContent =
-      all.filter(
-        x =>
-          x.status === 'Accepted'
-      ).length;
-  }
-
-  if (rejected) {
-    rejected.textContent =
-      all.filter(
-        x =>
-          x.status === 'Rejected'
-      ).length;
-  }
-
-
-  if (!list.length) {
-
-    box.innerHTML = `
-      <div class="empty-mod">
-        <div>◆</div>
-        <h3>No requests here</h3>
-        <p>
-          New public submissions will appear
-          in this dashboard.
-        </p>
-      </div>
-    `;
-
-    return;
-  }
-
-
-  box.innerHTML =
-    list
-      .map(item => `
-
-        <article class="mod-item">
-
-          <div class="mod-item-head">
-
-            <div>
-
-              <span class="type-badge">
-                ${esc(item.type)}
-              </span>
-
-              <h3>
-                ${esc(item.username)}
-              </h3>
-
-              <small>
-                ${esc(item.createdAt)}
-                · ID ${esc(item.id)}
-              </small>
-
+        container.innerHTML = `
+            <div class="empty-state">
+                <h3>No submissions</h3>
+                <p>
+                    There are no submissions
+                    matching this filter.
+                </p>
             </div>
+        `;
 
-            <span
-              class="
-                status-dot-badge
-                ${esc(
-                  item.status.toLowerCase()
-                )}
-              "
-            >
-              ${esc(item.status)}
-            </span>
+        return;
+    }
 
-          </div>
+    container.innerHTML =
+        filtered.map(item => {
 
+            const statusClass =
+                String(item.status)
+                    .toLowerCase()
+                    .replace(/\s+/g, "-");
 
-          <div class="request-body">
+            return `
+                <div class="moderation-card">
 
-            <div>
+                    <div class="moderation-header">
 
-              <b>
-                ${esc(
-                  item.reason ||
-                  'Request'
-                )}
-              </b>
+                        <div>
+                            <span class="submission-type">
+                                ${escapeHTML(item.type)}
+                            </span>
 
-              <p>
-                ${esc(
-                  item.description
-                )}
-              </p>
+                            <h3>
+                                ${escapeHTML(
+                                    item.username ||
+                                    "Unknown"
+                                )}
+                            </h3>
 
-              ${
-                item.evidence
-                  ? `
-                    <a
-                      href="${esc(
-                        item.evidence
-                      )}"
-                      target="_blank"
-                      rel="noopener"
-                    >
-                      Evidence link ↗
-                    </a>
-                  `
-                  : ''
-              }
+                            <small>
+                                ${escapeHTML(item.id)}
+                            </small>
+                        </div>
 
-            </div>
+                        <span class="status ${statusClass}">
+                            ${escapeHTML(item.status)}
+                        </span>
+
+                    </div>
 
 
-            <div class="mod-controls">
+                    <div class="moderation-body">
 
-              <label>
-                Status
+                        ${
+                            item.reason
+                                ? `
+                                    <p>
+                                        <strong>
+                                            Reason:
+                                        </strong>
+                                        ${escapeHTML(
+                                            item.reason
+                                        )}
+                                    </p>
+                                `
+                                : ""
+                        }
 
-                <select
-                  onchange="
-                    changeStatus(
-                      '${esc(item.id)}',
-                      this.value
-                    )
-                  "
-                >
 
-                  ${statuses
-                    .map(
-                      status => `
-                        <option
-                          ${
-                            status ===
-                            item.status
-                              ? 'selected'
-                              : ''
-                          }
+                        ${
+                            item.subject
+                                ? `
+                                    <p>
+                                        <strong>
+                                            Subject:
+                                        </strong>
+                                        ${escapeHTML(
+                                            item.subject
+                                        )}
+                                    </p>
+                                `
+                                : ""
+                        }
+
+
+                        <p>
+                            <strong>
+                                Details:
+                            </strong>
+                            <br>
+                            ${escapeHTML(
+                                item.details ||
+                                "No details provided."
+                            )}
+                        </p>
+
+
+                        <p class="submission-date">
+                            Submitted:
+                            ${escapeHTML(
+                                formatDate(
+                                    item.createdAt
+                                )
+                            )}
+                        </p>
+
+
+                        ${
+                            item.moderatorNote
+                                ? `
+                                    <div class="moderator-note">
+                                        <strong>
+                                            Moderator Note
+                                        </strong>
+
+                                        <p>
+                                            ${escapeHTML(
+                                                item.moderatorNote
+                                            )}
+                                        </p>
+                                    </div>
+                                `
+                                : ""
+                        }
+
+                    </div>
+
+
+                    <div class="moderation-actions">
+
+                        <select
+                            class="status-select"
+                            data-status-id="${escapeHTML(item.id)}"
+                            data-status-type="${escapeHTML(item.type)}"
                         >
-                          ${status}
-                        </option>
-                      `
-                    )
-                    .join('')}
 
-                </select>
+                            <option value="Pending"
+                                ${item.status === "Pending" ? "selected" : ""}>
+                                Pending
+                            </option>
 
-              </label>
+                            <option value="Reviewing"
+                                ${item.status === "Reviewing" ? "selected" : ""}>
+                                Reviewing
+                            </option>
+
+                            <option value="Reviewed"
+                                ${item.status === "Reviewed" ? "selected" : ""}>
+                                Reviewed
+                            </option>
+
+                            <option value="Accepted"
+                                ${item.status === "Accepted" ? "selected" : ""}>
+                                Accepted
+                            </option>
+
+                            <option value="Rejected"
+                                ${item.status === "Rejected" ? "selected" : ""}>
+                                Rejected
+                            </option>
+
+                            <option value="Closed"
+                                ${item.status === "Closed" ? "selected" : ""}>
+                                Closed
+                            </option>
+
+                        </select>
 
 
-              <label>
-
-                Moderator note
-
-                <textarea
-                  id="note-${esc(
-                    item.id
-                  )}"
-                  placeholder="Internal note..."
-                >${esc(
-                  item.note
-                )}</textarea>
-
-              </label>
+                        <input
+                            type="text"
+                            class="note-input"
+                            placeholder="Moderator note..."
+                            value="${escapeHTML(
+                                item.moderatorNote || ""
+                            )}"
+                            data-note-id="${escapeHTML(item.id)}"
+                            data-note-type="${escapeHTML(item.type)}"
+                        />
 
 
-              <button
-                class="save-note"
-                onclick="
-                  saveNote(
-                    '${esc(item.id)}'
-                  )
-                "
-              >
-                Save note
-              </button>
+                        <button
+                            class="primary-btn update-submission"
+                            data-id="${escapeHTML(item.id)}"
+                            data-type="${escapeHTML(item.type)}"
+                            type="button"
+                        >
+                            Update
+                        </button>
 
-            </div>
 
-          </div>
+                        <button
+                            class="danger-btn delete-submission"
+                            data-id="${escapeHTML(item.id)}"
+                            data-type="${escapeHTML(item.type)}"
+                            type="button"
+                        >
+                            Delete
+                        </button>
 
-        </article>
+                    </div>
 
-      `)
-      .join('');
+                </div>
+            `;
+
+        }).join("");
 }
 
 
-/* =========================================
-   CHANGE STATUS
-========================================= */
+/* =========================
+   MODERATION COUNTERS
+   ========================= */
 
-function changeStatus(
-  id,
-  status
+function updateModerationCounters(
+    submissions
 ) {
 
-  const all =
-    getRequests();
+    const pending =
+        submissions.filter(
+            item => item.status === "Pending"
+        ).length;
 
-  const item =
-    all.find(
-      request =>
-        request.id === id
-    );
+    const reviewing =
+        submissions.filter(
+            item => item.status === "Reviewing"
+        ).length;
 
-  if (!item) return;
+    const accepted =
+        submissions.filter(
+            item => item.status === "Accepted"
+        ).length;
 
-  item.status =
-    status;
+    const rejected =
+        submissions.filter(
+            item => item.status === "Rejected"
+        ).length;
 
-  saveRequests(all);
 
-  renderModeration();
+    const pendingCount =
+        $("pendingCount");
 
-  toast(
-    'Status updated to ' +
-      status +
-      '.',
-    'Updated!'
-  );
+    const reviewingCount =
+        $("reviewingCount");
+
+    const acceptedCount =
+        $("acceptedCount");
+
+    const rejectedCount =
+        $("rejectedCount");
+
+
+    if (pendingCount) {
+        pendingCount.textContent =
+            pending;
+    }
+
+    if (reviewingCount) {
+        reviewingCount.textContent =
+            reviewing;
+    }
+
+    if (acceptedCount) {
+        acceptedCount.textContent =
+            accepted;
+    }
+
+    if (rejectedCount) {
+        rejectedCount.textContent =
+            rejected;
+    }
 }
 
 
-/* =========================================
-   SAVE MODERATOR NOTE
-========================================= */
+/* =========================
+   CLICK EVENTS
+   ========================= */
 
-function saveNote(id) {
+document.addEventListener(
+    "click",
+    function (event) {
 
-  const textarea =
-    document.getElementById(
-      'note-' + id
-    );
+        const pageButton =
+            event.target.closest(
+                "[data-page]"
+            );
 
-  const all =
-    getRequests();
+        if (pageButton) {
 
-  const item =
-    all.find(
-      request =>
-        request.id === id
-    );
+            const page =
+                pageButton.dataset.page;
 
-  if (!item || !textarea) {
-    return;
-  }
+            showPage(page);
 
-  item.note =
-    textarea.value;
-
-  saveRequests(all);
-
-  toast(
-    'Moderator note saved.',
-    'Saved!'
-  );
-}
+            return;
+        }
 
 
-const modFilter =
-  document.getElementById(
-    'modFilter'
-  );
+        if (
+            event.target.closest(
+                "#robloxLogin"
+            )
+        ) {
 
-if (modFilter) {
+            robloxLogin();
 
-  modFilter.addEventListener(
-    'change',
-    renderModeration
-  );
-}
+            return;
+        }
 
 
-/* =========================================
-   LOADING SCREEN
-========================================= */
+        if (
+            event.target.closest(
+                "#signOut"
+            )
+        ) {
 
-window.addEventListener(
-  'load',
-  () => {
+            signOutStaff();
 
-    setTimeout(() => {
+            return;
+        }
 
-      const loader =
-        document.getElementById(
-          'loader'
-        );
 
-      if (loader) {
-        loader.classList.add(
-          'done'
-        );
-      }
+        if (
+            event.target.closest(
+                "#submitReport"
+            )
+        ) {
 
-      document.body.style.overflow =
-        'auto';
+            submitReport();
 
-    }, 2550);
-  }
+            return;
+        }
+
+
+        if (
+            event.target.closest(
+                "#submitAppeal"
+            )
+        ) {
+
+            submitAppeal();
+
+            return;
+        }
+
+
+        if (
+            event.target.closest(
+                "#submitTicket"
+            )
+        ) {
+
+            submitTicket();
+
+            return;
+        }
+
+
+        const updateButton =
+            event.target.closest(
+                ".update-submission"
+            );
+
+        if (updateButton) {
+
+            const id =
+                updateButton.dataset.id;
+
+            const type =
+                updateButton.dataset.type;
+
+            const statusSelect =
+                document.querySelector(
+                    `.status-select[data-status-id="${CSS.escape(id)}"]`
+                );
+
+            const noteInput =
+                document.querySelector(
+                    `.note-input[data-note-id="${CSS.escape(id)}"]`
+                );
+
+            const status =
+                statusSelect
+                    ? statusSelect.value
+                    : "Pending";
+
+            const note =
+                noteInput
+                    ? noteInput.value.trim()
+                    : "";
+
+            updateSubmission(
+                type,
+                id,
+                status,
+                note
+            );
+
+            return;
+        }
+
+
+        const deleteButton =
+            event.target.closest(
+                ".delete-submission"
+            );
+
+        if (deleteButton) {
+
+            const id =
+                deleteButton.dataset.id;
+
+            const type =
+                deleteButton.dataset.type;
+
+            if (
+                confirm(
+                    "Are you sure you want to delete this submission?"
+                )
+            ) {
+
+                deleteSubmission(
+                    type,
+                    id
+                );
+            }
+
+            return;
+        }
+    }
 );
 
 
-/* =========================================
-   ROBLOX STAFF LOGIN
-========================================= */
+/* =========================
+   FORM EVENTS
+   ========================= */
 
-const authGate =
-  document.getElementById(
-    'authGate'
-  );
+document.addEventListener(
+    "submit",
+    function (event) {
 
-const modNav =
-  document.getElementById(
-    'modNav'
-  );
+        event.preventDefault();
 
-const signOutBtn =
-  document.getElementById(
-    'signOut'
-  );
+        const form =
+            event.target;
 
-const avatar =
-  document.getElementById(
-    'avatar'
-  );
+        if (form.id === "reportForm") {
+            submitReport();
+        }
 
-const authError =
-  document.getElementById(
-    'authError'
-  );
+        if (form.id === "appealForm") {
+            submitAppeal();
+        }
 
-const robloxUsernameInput =
-  document.getElementById(
-    'robloxUsername'
-  );
+        if (form.id === "ticketForm") {
+            submitTicket();
+        }
 
-const robloxUserIdInput =
-  document.getElementById(
-    'robloxUserId'
-  );
-
-const robloxLoginButton =
-  document.getElementById(
-    'robloxLogin'
-  );
-
-
-/* =========================================
-   CHECK STAFF
-========================================= */
-
-function isStaff(
-  username,
-  userId
-) {
-
-  const cleanUsername =
-    String(username || '')
-      .trim()
-      .toLowerCase();
-
-  const cleanUserId =
-    String(userId || '')
-      .trim();
-
-
-  const idMatch =
-    STAFF_USER_IDS.some(
-      id =>
-        String(id)
-          .trim() ===
-        cleanUserId
-    );
-
-
-  const usernameMatch =
-    STAFF_USERNAMES.some(
-      name =>
-        String(name)
-          .trim()
-          .toLowerCase() ===
-        cleanUsername
-    );
-
-
-  return (
-    idMatch ||
-    usernameMatch
-  );
-}
-
-
-/* =========================================
-   SET STAFF UI
-========================================= */
-
-function setStaffUI(
-  username,
-  userId
-) {
-
-  if (authGate) {
-    authGate.style.display =
-      'none';
-  }
-
-  if (modNav) {
-    modNav.hidden =
-      false;
-  }
-
-  if (signOutBtn) {
-    signOutBtn.hidden =
-      false;
-  }
-
-  if (avatar) {
-
-    avatar.textContent =
-      String(
-        username ||
-        'Staff'
-      )
-        .trim()
-        .slice(0, 2)
-        .toUpperCase();
-  }
-
-
-  sessionStorage.setItem(
-    'sp_staff_username',
-    username
-  );
-
-  sessionStorage.setItem(
-    'sp_staff_userid',
-    userId
-  );
-}
-
-
-/* =========================================
-   ROBLOX LOGIN
-========================================= */
-
-function robloxLogin() {
-
-  if (authError) {
-    authError.textContent =
-      '';
-  }
-
-
-  const username =
-    robloxUsernameInput
-      ? robloxUsernameInput.value
-      : '';
-
-  const userId =
-    robloxUserIdInput
-      ? robloxUserIdInput.value
-      : '';
-
-
-  if (!username && !userId) {
-
-    if (authError) {
-      authError.textContent =
-        'Enter your Roblox username or User ID.';
+        if (form.id === "staffLoginForm") {
+            robloxLogin();
+        }
     }
-
-    return;
-  }
+);
 
 
-  if (
-    !isStaff(
-      username,
-      userId
-    )
-  ) {
+/* =========================
+   STATUS FILTER
+   ========================= */
 
-    if (authError) {
-      authError.textContent =
-        'This Roblox account is not authorized for the SP staff dashboard.';
+document.addEventListener(
+    "change",
+    function (event) {
+
+        if (
+            event.target.id ===
+            "statusFilter"
+        ) {
+
+            renderModeration();
+        }
     }
-
-    return;
-  }
+);
 
 
-  setStaffUI(
-    username || 'Staff',
-    userId || ''
-  );
+/* =========================
+   ENTER TO LOGIN
+   ========================= */
 
+document.addEventListener(
+    "keydown",
+    function (event) {
 
-  toast(
-    'Staff access granted.',
-    'Welcome!'
-  );
-}
+        if (
+            event.key === "Enter" &&
+            (
+                event.target.id ===
+                    "robloxUsername" ||
+                event.target.id ===
+                    "robloxUserId"
+            )
+        ) {
 
+            event.preventDefault();
 
-if (robloxLoginButton) {
-
-  robloxLoginButton.addEventListener(
-    'click',
-    robloxLogin
-  );
-}
-
-
-/* =========================================
-   SIGN OUT
-========================================= */
-
-if (signOutBtn) {
-
-  signOutBtn.onclick = () => {
-
-    sessionStorage.removeItem(
-      'sp_staff_username'
-    );
-
-    sessionStorage.removeItem(
-      'sp_staff_userid'
-    );
-
-
-    if (modNav) {
-      modNav.hidden =
-        true;
+            robloxLogin();
+        }
     }
-
-    signOutBtn.hidden =
-      true;
+);
 
 
-    if (authGate) {
-      authGate.style.display =
-        'flex';
-    }
+/* =========================
+   INITIALIZE
+   ========================= */
 
+function initialize() {
 
-    if (authError) {
-      authError.textContent =
-        '';
-    }
-
-
-    if (robloxUsernameInput) {
-      robloxUsernameInput.value =
-        '';
-    }
-
-    if (robloxUserIdInput) {
-      robloxUserIdInput.value =
-        '';
-    }
-
-
-    showPage(
-      'dashboard'
-    );
-  };
-}
-
-
-/* =========================================
-   RESTORE STAFF SESSION
-========================================= */
-
-window.addEventListener(
-  'load',
-  () => {
-
-    const savedUsername =
-      sessionStorage.getItem(
-        'sp_staff_username'
-      );
-
-    const savedUserId =
-      sessionStorage.getItem(
-        'sp_staff_userid'
-      );
-
+    const staff =
+        getStaffSession();
 
     if (
-      savedUsername &&
-      isStaff(
-        savedUsername,
-        savedUserId
-      )
+        staff &&
+        isStaff(
+            staff.username,
+            staff.userId
+        )
     ) {
 
-      setStaffUI(
-        savedUsername,
-        savedUserId
-      );
+        setStaffUI(staff);
+
+    } else {
+
+        sessionStorage.removeItem(
+            STAFF_SESSION_KEY
+        );
+
+        setStaffUI(null);
     }
 
-  }
-);
+
+    const currentPage =
+        document.querySelector(
+            ".page.active"
+        );
+
+    if (!currentPage) {
+        showPage("dashboard");
+    }
+
+
+    renderModeration();
+}
+
+
+/* =========================
+   START
+   ========================= */
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initialize
+    );
+
+} else {
+
+    initialize();
+}
